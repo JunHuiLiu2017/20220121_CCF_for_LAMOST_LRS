@@ -25,12 +25,12 @@ def test_lamost_specs2(flux_list, test_size, wave=np.arange(3950, 5750, 1)):
         plt.plot(wave, test_spec, 'b-')
     plt.show()
 
-def do_CCF(CCF_specs, fits_list, fits_params, test_size, wave=np.arange(3950, 5750, 1)):
+def do_CCF_test(CCF_specs, fits_list, fits_params, test_size, wave=np.arange(3950, 5750, 1)):
     p_test = np.zeros((test_size, 6), dtype=float)
     p_CCF = np.zeros((test_size, 4), dtype=float)
     rv_CCF = np.zeros((test_size, 1), dtype=float)
     for j in range(test_size):
-        if j % 10 == 0:
+        if j % 1 == 0:
             print(j, time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(time.time())))
         test_spec = fits_list[j].interp_then_norm(wave, rv=0)[0]
         snr = fits_list[j].snr
@@ -57,11 +57,12 @@ def do_CCF(CCF_specs, fits_list, fits_params, test_size, wave=np.arange(3950, 57
             'rv_CCF': rv_CCF}
 
 
+
 wave = np.arange(3950, 5750, 1)
 CCF_wave = np.arange(3800, 6000, 1)
 
 CCF_specs = joblib.load(
-    'C:/Users/hp/Desktop/20211109laspec_tutorial/CCF/CCF_datas/2022_01_23_23_47_23_imitated_CCF_wl_3800_6000_300_.dump')
+    '/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS/2022_01_23_23_47_23_imitated_CCF_wl_3800_6000_300_.dump')
 
 matplotlib.rcParams['xtick.direction'] = 'in'
 matplotlib.rcParams['ytick.direction'] = 'in'  # 将刻度显示成朝里
@@ -89,11 +90,11 @@ ax1.set_ylabel("$\log{g}$ [dex] (Apogee)", fontsize=18)
 ###############################################################################################################
 
 
-test_data = load('D:/2020_workspace/2021work/20211109laspec_tutorial/2021_12_24_22_49_08_74768Apdr16_para_dump_ap_lm.dpl')
-params = test_data['params'][::100]
-spec_list = test_data['spec_list'][::100]
+test_data = load('/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS/small_sample_1000.dump')
+params = test_data['params'][:20]
+spec_list = test_data['spec_list'][:20]
 
-results = do_CCF(CCF_specs=CCF_specs, fits_list=spec_list, fits_params=params, test_size=len(params))
+results = do_CCF_test(CCF_specs=CCF_specs, fits_list=spec_list, fits_params=params, test_size=len(params))
 dump(results, '2.dump')
 
 fig1, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
