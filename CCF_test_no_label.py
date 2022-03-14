@@ -6,17 +6,50 @@ import os
 from laspec import mrs
 
 
+def read_spectra_multi(fp_list, dir_path, wave):
+    """Read a small spectral list of one object, \
+    this list holds all spectra of this object observed in different epochs.
+
+    Parameters
+    ----------
+    fp_list:
+        list of file paths
+    wave:
+        interpolation grid
+
+    Returns
+    -------
+    normalized flux and the corresponding error
+
+    Notes: First interpolation, then norm
+
+    """
+    spec_list = [mrs.MrsSpec.from_lrs(dir_path + fp.split('/')[-1]) for fp in fp_list]
+    spec_num = len(spec_list)
+    # mask_list = np.zeros((spec_num, len(wave)), dtype=float)
+    flux_norm_array = np.zeros((spec_num, len(wave)), dtype=float)
+    flux_norm_err_array = np.zeros((spec_num, len(wave)), dtype=float)
+    for _ in range(spec_num):
+        # mask_list[_] = np.interp(wave, spec_list[_].wave, spec_list[_].mask)
+        flux_norm_array[_], flux_norm_err_array[_] = spec_list[_].interp_then_norm(wave)
+    flux_norm_err_array[np.isnan(flux_norm_err_array)] = 10000
+    flux_norm_array[np.isnan(flux_norm_array)] = 0
+    return flux_norm_array, flux_norm_err_array, spec_list[0].ra, spec_list[0].dec
+
 def do_CCF_fits_name(ccf_specs, work_path, fits_name, wave=np.arange(3950, 5750, 1)):
     """
 
     Args:
         ccf_specs: The template CCF spectra (with labels: teff, logg, M/H, alpha/M) to do CCF.
-        work_path: The path of the file of observed spectra.
+        ccf_params:
+        ------work_path: The path of the file of observed spectra. ------delete
         fits_path: the fits name
-        test_size: the size of single CCF
+        id : list for observed id (row number)
+
         wave: the range of wavelength
 
     Returns:
+        dict  : the input id, CCF_maxs,
         para_CCF: obsid of LAMOST, teff, logg, M/H, alpha/M, snr, rv
 
     """
@@ -28,11 +61,13 @@ def do_CCF_fits_name(ccf_specs, work_path, fits_name, wave=np.arange(3950, 5750,
     maxvalues = []
     rvs = []
     for i in ccf_specs['flux_norm_regli_CCF']:
-        rvgrid, ccf = wxcorr_rvgrid(wave, test_spec, CCF_wave, i, rv_grid=np.linspace(-250, 250, 50))
+        rvgrid, ccf = wxcorr_rvgrid(wave, test_spec, CCF_wave, i, rv_grid=np.linspace(-500, 500, 50)) # MRS 40-50 rvgrid 10, #*** LRS rvgrid 30km/s ***#
         maxvalues.append(max(ccf))
         rvs.append(rvgrid[np.argmax(ccf)])
 
-    para_CCF[0] = int(obsid)
+    #### 得到粗略参数后，做速度最优化，使得速度不是格点值。
+
+    para_CCF[0] = int(obsid) #group id  RA DEC
     para_CCF[1:5] = CCF_specs['p_regli_CCF'][np.argmax(maxvalues)]
     para_CCF[5] = snr
     para_CCF[6] = rvs[np.argmax(maxvalues)]
@@ -121,3 +156,5 @@ if __name__ == '__main__':
         print(results['para_CCF'])
         end = time.time()
         print(end - start)
+
+
