@@ -8,7 +8,7 @@ import pandas as pd
 from laspec.ccf import RVM
 
 
-def read_spectra_multi(fp_list, dir_path):
+def read_spectra_multi(fp_list, dir_path, wave=np.arange(3950, 5750, 1)):
     """Read a small spectral list of one object, \
     this list holds all spectra of this object observed in different epochs.
 
@@ -126,8 +126,8 @@ def do_CCF_fits_path(ccf_specs, work_path, fits_path):
     return {'para_CCF': para_CCF}
 
 
-def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array):
-    '''
+def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, CCF_wave=np.arange(3800, 6000, 1), wave=np.arange(3950, 5750, 1)):
+    """
     Do the CCF for the flux list.
     Args:
         ccf_specs: the templated spectra of CCF
@@ -139,7 +139,7 @@ def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array):
         the parameters list of CCF
         para_CCF: obsid of LAMOST, teff, logg, M/H, alpha/M, rv, snr
 
-    '''
+    """
     test_size = len(flux_norm_array)
     template_size = len(ccf_specs['flux_norm_regli_CCF'])
     para_CCF = np.zeros((test_size, 7), dtype=float)
@@ -156,8 +156,8 @@ def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array):
             rvs[_i][_j] = rvgrid[np.argmax(ccf)]
 
     # Get the best template and its index, then get the parameters and flux of this template.
-    max_ccfs_mean_index = np.argmax(max_ccfs.mean(axis=1))
-    best_template_paras = CCF_specs['p_regli_CCF'][max_ccfs_mean_index]
+    max_ccfs_mean_index = np.argmax(max_ccfs.max(axis=1))
+    best_template_paras = ccf_specs['p_regli_CCF'][max_ccfs_mean_index]
     best_template_flux = ccf_specs['flux_norm_regli_CCF'][max_ccfs_mean_index]
 
     # Utilized the row velocities to get the precise values. By the way, get the return.
@@ -183,6 +183,13 @@ def getFileName2(path, suffix):
     return input_template_All, input_template_All_Path
 
 
+def _one_task(fits_list, ccf_specs):
+    work_path = './20220313_CCF_test_grouped_fits/'
+    flux_norm_array, flux_norm_err_array, snr_array, obsid_array = read_spectra_multi(fits_list, work_path)
+    para_CCF = do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array)
+    return para_CCF
+
+
 if __name__ == '__main__':
     # Load CCF wave range, template and its corresponding parameters.
     CCF_wave = np.arange(3800, 6000, 1)
@@ -198,11 +205,26 @@ if __name__ == '__main__':
     Grouped_data_csv = data_csv.groupby(data_csv['GroupID'])
     Unique_GroupID = pd.unique(data_csv['GroupID'])  # get unique GroupID
 
+
+### one processing
+    start = time.time()
+    # fits_lists = []
+    # for _i in Unique_GroupID[:10]:
+    #     fits_list = pd.unique(Grouped_data_csv.get_group(_i)['combined_file'])
+    #     flux_norm_array, flux_norm_err_array, snr_array, obsid_array = read_spectra_multi(fits_list, work_path, wave=np.arange(3950, 5750, 1))
+    #     para_CCF = do_CCF_flux_list(CCF_specs, flux_norm_array, snr_array, obsid_array)
+    #     print(para_CCF)
+    # end = time.time()
+    # print(end - start)
+
+
+#   multiprocess
+    fits_lists = []
     for _i in Unique_GroupID:
-        start = time.time()
         fits_list = pd.unique(Grouped_data_csv.get_group(_i)['combined_file'])
-        flux_norm_array, flux_norm_err_array, snr_array, obsid_array = read_spectra_multi(fits_list, work_path)
-        para_CCF = do_CCF_flux_list(CCF_specs, flux_norm_array, snr_array, obsid_array)
-        print(para_CCF)
-        end = time.time()
-        print(end - start)
+        fits_lists.append(fits_list)
+
+    result = joblib.Parallel(n_jobs=4, backend="multiprocessing")(joblib.delayed(_one_task)(_, CCF_specs) for _ in fits_lists[:10])
+    print(result)
+    end = time.time()
+    print(end - start)
