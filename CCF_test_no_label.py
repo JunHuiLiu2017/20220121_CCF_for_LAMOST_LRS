@@ -6,6 +6,42 @@ import os
 from laspec import mrs
 import pandas as pd
 from laspec.ccf import RVM
+import matplotlib.pyplot as plt
+from astropy import constants
+from laspec.normalization import normalize_spectrum_general
+
+SOL_kms = constants.c.value / 1000
+
+
+def wave_rv_my(wavelength, rv=0):
+    """ calculate RV-corrected wavelength array
+
+    Parameters
+    ----------
+    rv: float
+        radial velocity in km/s
+
+    Args:
+        wavelength:
+
+    """
+    return wavelength / (1 + rv / SOL_kms)
+
+
+def interp_my(new_wave, old_wave, flux, rv=0):
+    """ interpolate to a new wavelength grid """
+    return np.interp(new_wave, wave_rv_my(old_wave, rv), flux)
+
+
+def positive_interp_then_norm(mrs_file, wave, rv=0):
+    flux_interp = mrs_file.interp(wave, rv=rv)
+    my_mask = flux_interp > 0
+    masked_flux_interp = flux_interp[my_mask]
+    masked_wave = wave[my_mask]
+    positive_flux_interp = interp_my(wave, masked_wave, masked_flux_interp, rv=rv)
+    flux_norm_my, flux_cont_my = normalize_spectrum_general(wave, positive_flux_interp)
+    flux_norm_err_my = np.interp(wave, wave_rv_my(mrs_file.wave, rv), mrs_file.flux_err) / flux_cont_my
+    return flux_norm_my, flux_norm_err_my
 
 
 def read_spectra_multi(fp_list, dir_path, wave=np.arange(3950, 5750, 1)):
@@ -28,18 +64,46 @@ def read_spectra_multi(fp_list, dir_path, wave=np.arange(3950, 5750, 1)):
     """
     spec_list = [mrs.MrsSpec.from_lrs(dir_path + fp.split('/')[-1]) for fp in fp_list]
     spec_num = len(spec_list)
-    # mask_list = np.zeros((spec_num, len(wave)), dtype=float)
+    mask_list = np.zeros((spec_num, len(wave)), dtype=float)
+    ivar_list = np.zeros((spec_num, len(wave)), dtype=float)
     flux_norm_array = np.zeros((spec_num, len(wave)), dtype=float)
     flux_norm_err_array = np.zeros((spec_num, len(wave)), dtype=float)
     snr_array = np.zeros((spec_num, 1), dtype=float)
     obsid_array = np.zeros((spec_num, 1), dtype=float)
     for _ in range(spec_num):
-        # mask_list[_] = np.interp(wave, spec_list[_].wave, spec_list[_].mask)
-        flux_norm_array[_], flux_norm_err_array[_] = spec_list[_].interp_then_norm(wave)
+        mask_list[_] = np.interp(wave, spec_list[_].wave, spec_list[_].mask)
+        ivar_list[_] = np.interp(wave, spec_list[_].wave, spec_list[_].ivar)
+        flux_norm_array[_], flux_norm_err_array[_] = spec_list[_].interp_then_norm(wave, rv=0)
         snr_array[_] = spec_list[_].snr
         obsid_array[_] = spec_list[_].obsid
     flux_norm_err_array[np.isnan(flux_norm_err_array)] = 10000
     flux_norm_array[np.isnan(flux_norm_array)] = 0
+
+    # plt.plot(wave, mask_list[0], 'k-')
+    # plt.plot(wave, mask_list[1], 'r-')
+    # plt.plot(spec_list[0].wave, spec_list[0].flux, 'k-')
+    # plt.plot(spec_list[1].wave, spec_list[1].flux, 'k-')
+    # plt.plot(wave, ivar_list[0], 'k-')
+    # plt.plot(wave, ivar_list[1], 'r-')
+    # plt.show()
+
+    ###filter the abnormal data###
+    delete_arrays = []
+    for _i, _j in enumerate(flux_norm_array):
+        if len(_j[_j==0]) == len(wave):
+            delete_arrays.append(_i)
+        # elif len(np.unique(_j)) < 1000:
+            # delete_arrays.append(_i)
+    for _k, _m in enumerate(mask_list):
+        if len(_m[_m!=0]) == len(wave):
+            delete_arrays.append(_k)
+    delete_tuple = tuple(np.unique(delete_arrays))
+    flux_norm_array = np.delete(flux_norm_array, delete_tuple, axis=0)
+    flux_norm_err_array = np.delete(flux_norm_err_array, delete_tuple, axis=0)
+    snr_array = np.delete(snr_array, delete_tuple, axis=0)
+    obsid_array = np.delete(obsid_array, delete_tuple, axis=0)
+    ###filter the abnormal data###
+    # print(flux_norm_array)
     return flux_norm_array, flux_norm_err_array, snr_array, obsid_array
 
 
@@ -142,7 +206,7 @@ def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, CCF_wav
     """
     test_size = len(flux_norm_array)
     template_size = len(ccf_specs['flux_norm_regli_CCF'])
-    para_CCF = np.zeros((test_size, 7), dtype=float)
+    para_CCF = np.zeros((test_size, 8), dtype=float)
     max_ccfs = np.zeros((template_size, test_size), dtype=float)
     rvs = np.zeros((template_size, test_size), dtype=float)
 
@@ -160,6 +224,9 @@ def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, CCF_wav
     best_template_paras = ccf_specs['p_regli_CCF'][max_ccfs_mean_index]
     best_template_flux = ccf_specs['flux_norm_regli_CCF'][max_ccfs_mean_index]
 
+    # plt.plot(wave, flux_norm_array[0], 'k-')
+    # plt.plot(CCF_wave, best_template_flux, 'g-')
+    # plt.show()
     # Utilized the row velocities to get the precise values. By the way, get the return.
     rvm = RVM(best_template_paras, CCF_wave, best_template_flux)
     for _k in range(test_size):
@@ -168,6 +235,8 @@ def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, CCF_wav
         para_CCF[_k][1:5] = best_template_paras
         para_CCF[_k][5] = rvr['rv_opt']
         para_CCF[_k][6] = snr_array[_k][0]
+        para_CCF[_k][7] = np.max(max_ccfs.max(axis=1))
+    print(para_CCF)
     return para_CCF
 
 
@@ -186,14 +255,17 @@ def getFileName2(path, suffix):
 def _one_task(fits_list, ccf_specs):
     work_path = './20220313_CCF_test_grouped_fits/'
     flux_norm_array, flux_norm_err_array, snr_array, obsid_array = read_spectra_multi(fits_list, work_path)
-    para_CCF = do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array)
+    if len(flux_norm_array) != 0:
+        para_CCF = do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array)
+    else:
+        para_CCF = []
     return para_CCF
 
 
 if __name__ == '__main__':
     # Load CCF wave range, template and its corresponding parameters.
     CCF_wave = np.arange(3800, 6000, 1)
-    CCF_specs = joblib.load('./2022_01_23_23_47_23_imitated_CCF_wl_3800_6000_300_.dump')
+    CCF_specs = joblib.load('./2022_03_16_14_08_52_imitated_CCF_wl_3800_6000_1000_.dump')
 
     # Load observed spectral wave range, the folder of fits file and its parameters recorded file.
     wave = np.arange(3950, 5750, 1)
@@ -205,26 +277,16 @@ if __name__ == '__main__':
     Grouped_data_csv = data_csv.groupby(data_csv['GroupID'])
     Unique_GroupID = pd.unique(data_csv['GroupID'])  # get unique GroupID
 
-
-### one processing
     start = time.time()
-    # fits_lists = []
-    # for _i in Unique_GroupID[:10]:
-    #     fits_list = pd.unique(Grouped_data_csv.get_group(_i)['combined_file'])
-    #     flux_norm_array, flux_norm_err_array, snr_array, obsid_array = read_spectra_multi(fits_list, work_path, wave=np.arange(3950, 5750, 1))
-    #     para_CCF = do_CCF_flux_list(CCF_specs, flux_norm_array, snr_array, obsid_array)
-    #     print(para_CCF)
-    # end = time.time()
-    # print(end - start)
-
 
 #   multiprocess
     fits_lists = []
     for _i in Unique_GroupID:
         fits_list = pd.unique(Grouped_data_csv.get_group(_i)['combined_file'])
         fits_lists.append(fits_list)
-
-    result = joblib.Parallel(n_jobs=4, backend="multiprocessing")(joblib.delayed(_one_task)(_, CCF_specs) for _ in fits_lists[:10])
-    print(result)
+    # print(fits_lists[-1])
+    # _one_task(fits_lists[-1], CCF_specs)
+    result = joblib.Parallel(n_jobs=1, backend="multiprocessing")(joblib.delayed(_one_task)(_, CCF_specs) for _ in fits_lists[:])
+    #print(result)
     end = time.time()
     print(end - start)
