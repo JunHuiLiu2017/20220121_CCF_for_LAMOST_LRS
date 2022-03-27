@@ -1,25 +1,15 @@
 import joblib
-import pandas as pd
-from slam.diagnostic import compare_labels
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-import matplotlib.pyplot as plt
 import matplotlib
-import random
-import laspec
 import numpy as np
 from laspec.normalization import normalize_spectrum_general
-from laspec.ccf import wxcorr_rvgrid
-import time
 from joblib import dump, load
-from laspec import mrs
 from CCF_test_no_label import do_CCF_flux_list
-import time
 from astropy import constants
 
 SOL_kms = constants.c.value / 1000
 
 
-def wave_rv_my(wavelength, rv=0):
+def wave_rv_my(wave_range, rv=0):
     """ calculate RV-corrected wavelength array
 
     Parameters
@@ -28,10 +18,10 @@ def wave_rv_my(wavelength, rv=0):
         radial velocity in km/s
 
     Args:
-        wavelength:
+        wave_range: the wave range
 
     """
-    return wavelength / (1 + rv / SOL_kms)
+    return wave_range / (1 + rv / SOL_kms)
 
 
 def interp_my(new_wave, old_wave, flux, rv=0):
@@ -39,13 +29,28 @@ def interp_my(new_wave, old_wave, flux, rv=0):
     return np.interp(new_wave, wave_rv_my(old_wave, rv), flux)
 
 
-def positive_interp_then_norm(mrs_file, wave, rv=0):
-    flux_interp = mrs_file.interp(wave, rv=rv)
+def positive_interp_then_norm(mrs_file, wave_range, rv=0):
+    """
+    By this process, the negative flux values are neglected,
+    then their original flux values are interpolated as positive values.
+    Meanwhile, for the negative norm flux they are set as 1.
+
+    Args:
+        mrs_file: the mrs file made already
+        wave_range: the work wave, wave=np.arange(3950, 5750, 1)
+        rv: the rv of spectra, should be set as 0.
+        Because we measure the rv, the rv values built into the Mrs File from LAMOST.
+
+    Returns:
+
+
+    """
+    flux_interp = mrs_file.interp(wave_range, rv=rv)
     my_mask = flux_interp > 0
     masked_flux_interp = flux_interp[my_mask]
     masked_wave = wave[my_mask]
     positive_flux_interp = interp_my(wave, masked_wave, masked_flux_interp, rv=rv)
-    flux_norm_my, flux_cont_my = normalize_spectrum_general(wave, positive_flux_interp)
+    flux_norm_my, flux_cont_my = normalize_spectrum_general(wave_range, positive_flux_interp)
     flux_norm_err_my = np.interp(wave, wave_rv_my(mrs_file.wave, rv), mrs_file.flux_err) / flux_cont_my
     return flux_norm_my, flux_norm_err_my
 
@@ -55,12 +60,16 @@ def read_test_spec(mrs_file, true_para, wave=np.arange(3950, 5750, 1)):
     this list holds all spectra of this object observed in different epochs.
     *******COPY FROM read_spectra_multi in CCF_test_no_label.py
 
+    By this process, the negative flux values are neglected,
+    then their original flux values are interpolated as positive values.
+    Meanwhile, for the negative norm flux they are set as 1.
+
     Parameters
     ----------
-    fp_list:
-        list of file paths
-    wave:
-        interpolation grid
+    mrs_file:
+        the mrs file in test sample.
+    true_para:
+        the parameters of the test sample, including the teff, logg, M/H and alpha/M from APOGEE, and rv from LAMOST.
 
     Returns
     -------
@@ -68,8 +77,6 @@ def read_test_spec(mrs_file, true_para, wave=np.arange(3950, 5750, 1)):
 
     Notes: First interpolation, then norm
 
-    Args:
-        mrs_file:
 
     """
     true_para_list = list(true_para)
@@ -88,7 +95,7 @@ def read_test_spec(mrs_file, true_para, wave=np.arange(3950, 5750, 1)):
         snr_array[_] = spec_list[_].snr
         obsid_array[_] = spec_list[_].obsid
     flux_norm_err_array[np.isnan(flux_norm_err_array)] = 10000
-    flux_norm_array[np.isnan(flux_norm_array)] = 0
+    flux_norm_array[np.isnan(flux_norm_array)] = 1
     flux_norm_array[flux_norm_array < 0] = 1
     flux_norm_array[flux_norm_array > 3] = 1
 
@@ -125,6 +132,10 @@ if __name__ == '__main__':
     CCF_specs = joblib.load(
         '/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS/2022_03_16_14_08_52_imitated_CCF_wl_3800_6000_1000_.dump')
 
+    test_data = load('/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS/small_sample_3000.dump')
+    params = test_data['params']
+    spec_list = test_data['spec_list']
+
     matplotlib.rcParams['xtick.direction'] = 'in'
     matplotlib.rcParams['ytick.direction'] = 'in'  # 将刻度显示成朝里
     matplotlib.rcParams['ytick.right'] = 'True'
@@ -151,64 +162,57 @@ if __name__ == '__main__':
     # plt.show()
     ###############################################################################################################
 
-    test_data = load('/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS/small_sample_2000.dump')
-    params = test_data['params']
-    spec_list = test_data['spec_list']
-
-
-
+    # #####################multi process#############################################################################
     # result = joblib.Parallel(n_jobs=1, backend="multiprocessing")(
     #     joblib.delayed(_one_task)(_i, _j, CCF_specs) for (_i, _j) in zip([spec_list[101], spec_list[317], spec_list[627]], [params[101], params[317], params[627]]))
-
     # dump(result, 'test_CCF.dump')
+    # #####################multiprocess#############################################################################
 
-    file_name = 'CCF_test_result/test_CCF_result_2000.csv'
-    tip = pd.read_csv(file_name)
-
-    fig1, ax1 = plt.subplots(nrows=1, ncols=2, figsize=(6, 6))
-
-    cm1 = plt.cm.get_cmap('jet')
-    im1 = ax1[0].scatter(tip['teff_ap'], tip['T_CCF']-tip["teff_ap"], s=30, c=tip['CCFmax'], marker=".",
-                      alpha=1,
-                      cmap=cm1, vmin=0.1, vmax=1.0)
-    position1 = fig1.add_axes([0.92, 0.12, 0.02, 0.76])  # 位置[左,下,右,上]
-    c1 = plt.colorbar(im1, cax=position1, orientation='vertical', )  # 方向
-    ax1[0].grid(True)
-    #ax1.set_xlim(-2.5, 0.5)
-    #ax1.set_ylim(-2.5, 0.5)
-    ax1[0].tick_params(labelsize=12)
-    ax1[0].set_xlabel("True Teff", fontsize=12)
-    ax1[0].set_ylabel("CCF Teff - True Teff", fontsize=12)
-    c1.set_label('CCFmax')
-
-    im2 = ax1[1].scatter(tip['rv_lm'], tip['rv_CCF']-tip["rv_lm"], s=30, c=tip['CCFmax'], marker=".",
-                      alpha=1,
-                      cmap=cm1, vmin=0.1, vmax=1.0)
-    ax1[1].grid(True)
-    # ax1[1].set_xlim(-2.5, 0.5)
-    # ax1[1].set_ylim(-2.5, 0.5)
-    ax1[1].tick_params(labelsize=12)
-    ax1[1].set_xlabel("LAMOST rv", fontsize=12)
-    ax1[1].set_ylabel("CCF rv - LAMOST rv", fontsize=12)
-
-    plt.show()
-
-    print(tip['obsid'][(tip['T_CCF'] - tip["teff_ap"])>1500])
+    # #####################Show Results#############################################################################
+    # file_name = 'CCF_test_result/test_CCF_result_3000.csv'
+    # tip = pd.read_csv(file_name)
     #
-
-
-
+    # fig1, ax1 = plt.subplots(nrows=1, ncols=2, figsize=(6, 6))
+    #
+    # cm1 = plt.cm.get_cmap('jet')
+    # im1 = ax1[0].scatter(tip['teff_ap'], tip['T_CCF']-tip["teff_ap"], s=30, c=tip['CCFmax'], marker=".",
+    #                   alpha=1,
+    #                   cmap=cm1, vmin=0.1, vmax=1.0)
+    # position1 = fig1.add_axes([0.92, 0.12, 0.02, 0.76])  # 位置[左,下,右,上]
+    # c1 = plt.colorbar(im1, cax=position1, orientation='vertical', )  # 方向
+    # ax1[0].grid(True)
+    # # ax1.set_xlim(-1000, 0.5)
+    # ax1[0].set_ylim(-2000, 2000)
+    # ax1[0].tick_params(labelsize=12)
+    # ax1[0].set_xlabel("True Teff", fontsize=12)
+    # ax1[0].set_ylabel("CCF Teff - True Teff", fontsize=12)
+    # c1.set_label('CCFmax')
+    #
+    # im2 = ax1[1].scatter(tip['rv_lm'], tip['rv_CCF']-tip["rv_lm"], s=30, c=tip['CCFmax'], marker=".",
+    #                   alpha=1,
+    #                   cmap=cm1, vmin=0.1, vmax=1.0)
+    # ax1[1].grid(True)
+    # # ax1[1].set_xlim(-30, 30)
+    # ax1[1].set_ylim(-30, 30)
+    # ax1[1].tick_params(labelsize=12)
+    # ax1[1].set_xlabel("LAMOST rv", fontsize=12)
+    # ax1[1].set_ylabel("CCF rv - LAMOST rv", fontsize=12)
+    #
+    # plt.show()
+    #
+    # print(tip['obsid'][(tip['T_CCF'] - tip["teff_ap"])>1500])
+    # #####################Show Results#############################################################################
 
 
     # ####################plot several observation spectra for check#######################
-    # for i in [101, 317, 627, 200]:
+    # for i in [953, 1041, 2108]:
     #     flux_norm_array, flux_norm_err_array, snr_array, obsid_array, true_para_list = read_test_spec(spec_list[i], params[i])
     #
-    #     plt.plot(wave, flux_norm_array[0], '.')
+    #     plt.plot(wave, flux_norm_array[0], '-')
     #     plt.xlabel('wavelength')
     #     plt.ylabel('norm flux')
     #     plt.legend(('43410212', '405614078', '362707204'))
-    #     plt.show()
+    # plt.show()
     # ####################plot several observation spectra for check#######################
 
 

@@ -13,7 +13,7 @@ from laspec.normalization import normalize_spectrum_general
 SOL_kms = constants.c.value / 1000
 
 
-def wave_rv_my(wavelength, rv=0):
+def wave_rv_my(wave_range, rv=0):
     """ calculate RV-corrected wavelength array
 
     Parameters
@@ -22,10 +22,10 @@ def wave_rv_my(wavelength, rv=0):
         radial velocity in km/s
 
     Args:
-        wavelength:
+        wave_range: the wave range
 
     """
-    return wavelength / (1 + rv / SOL_kms)
+    return wave_range / (1 + rv / SOL_kms)
 
 
 def interp_my(new_wave, old_wave, flux, rv=0):
@@ -33,13 +33,28 @@ def interp_my(new_wave, old_wave, flux, rv=0):
     return np.interp(new_wave, wave_rv_my(old_wave, rv), flux)
 
 
-def positive_interp_then_norm(mrs_file, wave, rv=0):
-    flux_interp = mrs_file.interp(wave, rv=rv)
+def positive_interp_then_norm(mrs_file, wave_range, rv=0):
+    """
+    By this process, the negative flux values are neglected,
+    then their original flux values are interpolated as positive values.
+    Meanwhile, for the negative norm flux they are set as 1.
+
+    Args:
+        mrs_file: the mrs file made already
+        wave_range: the work wave, wave=np.arange(3950, 5750, 1)
+        rv: the rv of spectra, should be set as 0.
+        Because we measure the rv, the rv values built into the Mrs File from LAMOST.
+
+    Returns:
+
+
+    """
+    flux_interp = mrs_file.interp(wave_range, rv=rv)
     my_mask = flux_interp > 0
     masked_flux_interp = flux_interp[my_mask]
     masked_wave = wave[my_mask]
     positive_flux_interp = interp_my(wave, masked_wave, masked_flux_interp, rv=rv)
-    flux_norm_my, flux_cont_my = normalize_spectrum_general(wave, positive_flux_interp)
+    flux_norm_my, flux_cont_my = normalize_spectrum_general(wave_range, positive_flux_interp)
     flux_norm_err_my = np.interp(wave, wave_rv_my(mrs_file.wave, rv), mrs_file.flux_err) / flux_cont_my
     return flux_norm_my, flux_norm_err_my
 
@@ -73,7 +88,7 @@ def read_spectra_multi(fp_list, dir_path, wave=np.arange(3950, 5750, 1)):
     for _ in range(spec_num):
         mask_list[_] = np.interp(wave, spec_list[_].wave, spec_list[_].mask)
         ivar_list[_] = np.interp(wave, spec_list[_].wave, spec_list[_].ivar)
-        flux_norm_array[_], flux_norm_err_array[_] = spec_list[_].interp_then_norm(wave, rv=0)
+        flux_norm_array[_], flux_norm_err_array[_] = positive_interp_then_norm(spec_list[_], wave)
         snr_array[_] = spec_list[_].snr
         obsid_array[_] = spec_list[_].obsid
     flux_norm_err_array[np.isnan(flux_norm_err_array)] = 10000

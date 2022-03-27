@@ -27,8 +27,8 @@ if __name__ == '__main__':
 
 
     #Write the record to csv
-    test_result = joblib.load('CCF_test_result/test_CCF_2000.dump')
-    with open('CCF_test_result/test_CCF_result_2000.csv', 'w+') as _file:
+    test_result = joblib.load('CCF_test_result/test_CCF_3000.dump')
+    with open('CCF_test_result/test_CCF_result_3000.csv', 'w+') as _file:
         _file.write('obsid,T_CCF,logg_CCF,M/H_CCF,alpha/M_CCF,rv_CCF,snr_CCF,CCFmax,teff_ap,logg_ap,feh_ap,a_M_ap,Vsini_ap,'
                     'Vmicro_ap,teff_lm,logg_lm,feh_lm,rv_lm,fps\n')
         for _i in test_result:
