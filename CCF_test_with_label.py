@@ -5,6 +5,7 @@ from laspec.normalization import normalize_spectrum_general
 from joblib import dump, load
 from CCF_test_no_label import do_CCF_flux_list
 from astropy import constants
+import matplotlib.pyplot as plt
 
 SOL_kms = constants.c.value / 1000
 
@@ -144,28 +145,28 @@ if __name__ == '__main__':
 
     ###############################################################################################################
     # show the distribution of CCF spectra.
-    # fig1, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(8, 8))
-    # cm2 = plt.cm.get_cmap('jet')
-    # im2 = ax1.scatter(CCF_specs['p_regli_CCF'][:, 0], CCF_specs['p_regli_CCF'][:, 1], s=30,
-    #                   c=CCF_specs['p_regli_CCF'][:, 2], marker="o", edgecolor='k', alpha=.8, cmap=cm2, vmin=-2,
-    #                   vmax=0.8)
-    # position2 = fig1.add_axes([0.92, 0.12, 0.02, 0.76])  # 位置[左,下,右,上]
-    # c2 = plt.colorbar(im2, cax=position2, orientation='vertical')  # 方向
-    # c2.set_label("[Fe/H] [dex]", fontsize = 18)
-    # ax1.grid(True)
-    # ax1.set_xlim(10500, 3000)
-    # ax1.set_ylim(5.50, -0.5)
-    # ax1.tick_params(labelsize=18)
-    # ax1.set_xlabel("$T_\mathrm{eff}$ [K] (Apogee)", fontsize=18)
-    # ax1.set_ylabel("$\log{g}$ [dex] (Apogee)", fontsize=18)
+    fig1, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+    cm2 = plt.cm.get_cmap('jet')
+    im2 = ax1.scatter(CCF_specs['p_regli_CCF'][:, 0], CCF_specs['p_regli_CCF'][:, 1], s=30,
+                      c=CCF_specs['p_regli_CCF'][:, 2], marker="o", edgecolor='k', alpha=.8, cmap=cm2, vmin=-2,
+                      vmax=0.8)
+    position2 = fig1.add_axes([0.91, 0.12, 0.02, 0.76])  # 位置[左,下,右,上]
+    c2 = plt.colorbar(im2, cax=position2, orientation='vertical')  # 方向
+    c2.set_label("[M/H] [dex]", fontsize = 18)
+    ax1.grid(True)
+    ax1.set_xlim(10500, 3000)
+    ax1.set_ylim(5.50, -0.5)
+    ax1.tick_params(labelsize=18)
+    ax1.set_xlabel("$T_\mathrm{eff}$ [K] (Apogee)", fontsize=18)
+    ax1.set_ylabel("$\log{g}$ [dex] (Apogee)", fontsize=18)
 
-    # plt.show()
+    plt.show()
     ###############################################################################################################
 
     # #####################multi process#############################################################################
-    # result = joblib.Parallel(n_jobs=1, backend="multiprocessing")(
-    #     joblib.delayed(_one_task)(_i, _j, CCF_specs) for (_i, _j) in zip([spec_list[101], spec_list[317], spec_list[627]], [params[101], params[317], params[627]]))
-    # dump(result, 'test_CCF.dump')
+    result = joblib.Parallel(n_jobs=1, backend="multiprocessing")(
+        joblib.delayed(_one_task)(_i, _j, CCF_specs) for (_i, _j) in zip([spec_list[101], spec_list[317], spec_list[627]], [params[101], params[317], params[627]]))
+    dump(result, 'test_CCF.dump')
     # #####################multiprocess#############################################################################
 
     # #####################Show Results#############################################################################

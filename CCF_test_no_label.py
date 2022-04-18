@@ -251,7 +251,6 @@ def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, CCF_wav
         para_CCF[_k][5] = rvr['rv_opt']
         para_CCF[_k][6] = snr_array[_k][0]
         para_CCF[_k][7] = np.max(max_ccfs.max(axis=1))
-    print(para_CCF)
     return para_CCF
 
 
@@ -263,7 +262,6 @@ def getFileName2(path, suffix):
             if os.path.splitext(name)[-1] == suffix:
                 input_template_All.append(name)
                 input_template_All_Path.append(os.path.join(root, name))
-
     return input_template_All, input_template_All_Path
 
 
