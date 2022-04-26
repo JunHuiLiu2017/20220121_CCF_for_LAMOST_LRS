@@ -167,7 +167,7 @@ if __name__ == '__main__':
     result = joblib.Parallel(n_jobs=1, backend="multiprocessing")(
         joblib.delayed(_one_task)(_i, _j, CCF_specs) for (_i, _j) in zip([spec_list[101], spec_list[317], spec_list[627]], [params[101], params[317], params[627]]))
     dump(result, 'test_CCF.dump')
-    # #####################multiprocess#############################################################################
+    # #####################multi process#############################################################################
 
     # #####################Show Results#############################################################################
     # file_name = 'CCF_test_result/test_CCF_result_3000.csv'
@@ -204,7 +204,6 @@ if __name__ == '__main__':
     # print(tip['obsid'][(tip['T_CCF'] - tip["teff_ap"])>1500])
     # #####################Show Results#############################################################################
 
-
     # ####################plot several observation spectra for check#######################
     # for i in [953, 1041, 2108]:
     #     flux_norm_array, flux_norm_err_array, snr_array, obsid_array, true_para_list = read_test_spec(spec_list[i], params[i])
@@ -215,8 +214,6 @@ if __name__ == '__main__':
     #     plt.legend(('43410212', '405614078', '362707204'))
     # plt.show()
     # ####################plot several observation spectra for check#######################
-
-
 
     # ####################test positive_interp_then_norm###################################
     # flux_norm, flux_norm_err = positive_interp_then_norm(spec_list[317], wave)

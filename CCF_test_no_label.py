@@ -6,7 +6,6 @@ import os
 from laspec import mrs
 import pandas as pd
 from laspec.ccf import RVM
-import matplotlib.pyplot as plt
 from astropy import constants
 from laspec.normalization import normalize_spectrum_general
 
@@ -217,9 +216,12 @@ def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, CCF_wav
     Returns:
         the parameters list of CCF
         para_CCF: obsid of LAMOST, teff, logg, M/H, alpha/M, rv, snr
-
     """
-    test_size = len(flux_norm_array)
+    if len(flux_norm_array[0]) == 1800:  # for the single spectra len(flux_norm_array[0]) = 1800, but for 2 epoches spectra, the value is 2.
+        test_size = 1
+    else:
+        test_size = len(flux_norm_array[0])
+        flux_norm_array = flux_norm_array[0]
     template_size = len(ccf_specs['flux_norm_regli_CCF'])
     para_CCF = np.zeros((test_size, 8), dtype=float)
     max_ccfs = np.zeros((template_size, test_size), dtype=float)
@@ -233,7 +235,6 @@ def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, CCF_wav
                                         rv_grid=np.linspace(-500, 500, 50))
             max_ccfs[_i][_j] = max(ccf)
             rvs[_i][_j] = rvgrid[np.argmax(ccf)]
-
     # Get the best template and its index, then get the parameters and flux of this template.
     max_ccfs_mean_index = np.argmax(max_ccfs.max(axis=1))
     best_template_paras = ccf_specs['p_regli_CCF'][max_ccfs_mean_index]
@@ -292,14 +293,14 @@ if __name__ == '__main__':
 
     start = time.time()
 
-#   multiprocess
+    # multiprocess
     fits_lists = []
     for _i in Unique_GroupID:
         fits_list = pd.unique(Grouped_data_csv.get_group(_i)['combined_file'])
         fits_lists.append(fits_list)
     # print(fits_lists[-1])
     # _one_task(fits_lists[-1], CCF_specs)
-    result = joblib.Parallel(n_jobs=1, backend="multiprocessing")(joblib.delayed(_one_task)(_, CCF_specs) for _ in fits_lists[:])
-    #print(result)
+    result = joblib.Parallel(n_jobs=1, backend="multiprocessing")(joblib.delayed(_one_task)(_, CCF_specs) for _ in fits_lists[:1])
+    print(result)
     end = time.time()
     print(end - start)
