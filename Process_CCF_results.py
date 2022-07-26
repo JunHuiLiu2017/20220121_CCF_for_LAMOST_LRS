@@ -40,22 +40,82 @@ if __name__ == '__main__':
     #             _i[1][12], _i[1][13], _i[1][14], _i[1][15])
     #         _file.write(single_record)
 
+
+    # # Write the record of test CCF of mock binary to csv
+    # # For the mock spectral sample with only two spectra for one object.!!!!!!!!!!!(20220425_test_CCF.dump)
+    # test_result = joblib.load('CCF_mock_binary/20220629_CCF_correct_rv_elumock_binary_3000_logg3_teff_4k_7k_2_epoches_for_criteria.dump')
+    # # for i in test_result:
+    # #     print(i[1])
+    # output_file = 'CCF_mock_binary/20220629_CCF_correct_rv_elumock_binary_3000_logg3_teff_4k_7k_2_epoches_for_criteria.csv'
+    # with open(output_file, 'w+') as _file:
+    #     _file.write('obsid(0),T_CCF,logg_CCF,M/H_CCF,alpha/M_CCF,rv_CCF,snr_CCF(0),CCFmax,' # 8
+    #                 'teff1,teff2,logg1,logg2,mh,alpha_m,'  #6
+    #                 'R1,R2,snr,period,just_num,mact1,mact2,logage,q,' #9
+    #                 'gamma,q_dyn,rv1_1,rv2_1,rv1_2,rv2_2,phase1,phase2\n') #7
+    #     for _i in test_result:
+    #         single_record = '{:.0f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.3f},'\
+    #                         '{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},' \
+    #                         '{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},'\
+    #                         '{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f}\n'.format(
+    #             _i[0][0], _i[0][1], _i[0][2], _i[0][3], _i[0][4], _i[0][5], _i[0][6], _i[0][7], \
+    #             _i[1][0], _i[1][1], _i[1][2], _i[1][3], _i[1][4], _i[1][5],
+    #              _i[1][6], _i[1][7], _i[1][8], 10**_i[1][9], _i[1][10], _i[1][11],_i[1][12], _i[1][13], _i[1][14],
+    #             _i[1][15], _i[1][16], _i[1][17][0], _i[1][18][0], _i[1][17][1], _i[1][18][1], _i[1][19][0], _i[1][19][1])
+    #         _file.write(single_record)
+
+
+
+    # # # For the multi observed spectra from LAMOST  2022.6.22 for PhD Zhangzhixiang
+    # # # For the multi observed spectra from LAMOST  !!!!!!!!!!!
+    # # # In the step, I only get the first CCF result, so the _i[0][0].
+    # test_result = joblib.load('./RV.dump')
+    # # for i in test_result:
+    # #     print(i[1])
+    # output_file = './RV.csv'
+    # with open(output_file, 'w+') as _file:
+    #     _file.write('combined_obsid,T_CCF,logg_CCF,M/H_CCF,alpha/M_CCF,rv_CCF,snr_CCF,CCFmax\n') #7
+    #     for _i in test_result:
+    #         single_record = '{:.0f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.3f}\n'.format(
+    #             _i[0][0], _i[0][1], _i[0][2], _i[0][3], _i[0][4], _i[0][5], _i[0][6], _i[0][7])
+    #         _file.write(single_record)
+
+
     # Write the record of test CCF of mock binary to csv
-    # For the mock spectral sample with only two spectra for one object.!!!!!!!!!!!(20220425_test_CCF.dump)
-    test_result = joblib.load('CCF_mock_binary/20220425_test_CCF.dump')
-    output_file = 'CCF_mock_binary/20220425_test_CCF.csv'
+    # For the mock spectral sample to get criteria. 2022.06.30
+    # test_result = joblib.load('CCF_mock_binary/20220711_CCF_result_mock_binary_spectra_for_criteria.dump')
+    # # for i in test_result:
+    # #     print(i[1])
+    # output_file = 'CCF_mock_binary/20220711_CCF_result_mock_binary_spectra_for_criteria.csv'
+    # with open(output_file, 'w+') as _file:
+    #     _file.write('obsid(0),T_CCF,logg_CCF,M/H_CCF,alpha/M_CCF,rv_CCF,snr_CCF(0),CCFmax,' # 8
+    #                 'teff1,teff2,logg1,logg2,mh,alpha_m,'  #6
+    #                 'R1,R2,snr,period,just_num,mact1,mact2,logage,q,' #9
+    #                 'gamma,rv1_1,rv2_1\n') #7
+    #     for _i in test_result:
+    #         single_record = '{:.0f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.3f},'\
+    #                         '{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},' \
+    #                         '{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},'\
+    #                         '{:.3f},{:.3f},{:.3f}\n'.format(
+    #             _i[0][0], _i[0][1], _i[0][2], _i[0][3], _i[0][4], _i[0][5], _i[0][6], _i[0][7], \
+    #             _i[1][0], _i[1][1], _i[1][2], _i[1][3], _i[1][4], _i[1][5],
+    #              _i[1][6], _i[1][7], _i[1][8], 10**_i[1][9], _i[1][10], _i[1][11],_i[1][12], _i[1][13], _i[1][14],
+    #             _i[1][15], _i[1][16], _i[1][17])
+    #         _file.write(single_record)
+
+    #################################################    After 2022.07.22    #####################################################
+
+    # # For the multi observed spectra from LAMOST  !!!!!!!!!!!
+    # # In the step, I only get the first CCF result, so the _i[0][0][0].
+    test_result = joblib.load('./CCF_observed_binary/20220721_new_CCF_result_test_sample_observed_spectra_4997.dump')
+    # for i in test_result:
+    #     print(i[1])
+    output_file = './/CCF_observed_binary/20220721_new_CCF_result_test_sample_observed_spectra_4997.csv'
     with open(output_file, 'w+') as _file:
-        _file.write('obsid(0),T_CCF,logg_CCF,M/H_CCF,alpha/M_CCF,rv_CCF,snr_CCF(0),CCFmax,' # 8
-                    'teff1,teff2,logg1,logg2,mh,alpha_m,'  #6
-                    'R1,R2,snr,period,just_num,mact1,mact2,logage,q,' #9
-                    'gamma,rv1_1,rv2_1,rv1_2,rv2_2,phase1,phase2\n') #7
+        _file.write('combined_obsid,T_CCF,logg_CCF,M/H_CCF,alpha/M_CCF,rv_CCF,snr_CCF,CCFmax,T_sp,logg_sp,M/H_sp,'
+                    'alpha/M_sp\n') #7
         for _i in test_result:
-            single_record = '{:.0f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.3f},'\
-                            '{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},' \
-                            '{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},'\
-                            '{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f}\n'.format(
-                _i[0][0], _i[0][1], _i[0][2], _i[0][3], _i[0][4], _i[0][5], _i[0][6], _i[0][7], \
-                _i[1][0], _i[1][1], _i[1][2], _i[1][3], _i[1][4], _i[1][5],
-                 _i[1][6], _i[1][7], _i[1][8], 10**_i[1][9], _i[1][10], _i[1][11],_i[1][12], _i[1][13], _i[1][14],
-                _i[1][15], _i[1][16][0], _i[1][17][0], _i[1][16][1], _i[1][17][1], _i[1][18][0], _i[1][18][1])
+            single_record = '{:.0f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.3f},' \
+                            '{:.3f},{:.3f},{:.3f},{:.3f}\n'.format(
+                _i[0][0][0], _i[0][0][1], _i[0][0][2], _i[0][0][3], _i[0][0][4], _i[0][0][5], _i[0][0][6], _i[0][0][7],
+                _i[1][0][1], _i[1][0][2], _i[1][0][3], _i[1][0][4])
             _file.write(single_record)

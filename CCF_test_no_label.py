@@ -8,6 +8,8 @@ import pandas as pd
 from laspec.ccf import RVM
 from astropy import constants
 from laspec.normalization import normalize_spectrum_general
+from joblib import load, dump
+import matplotlib.pyplot as plt
 
 SOL_kms = constants.c.value / 1000
 
@@ -45,7 +47,6 @@ def positive_interp_then_norm(mrs_file, wave_range, rv=0):
         Because we measure the rv, the rv values built into the Mrs File from LAMOST.
 
     Returns:
-
 
     """
     flux_interp = mrs_file.interp(wave_range, rv=rv)
@@ -104,12 +105,12 @@ def read_spectra_multi(fp_list, dir_path, wave=np.arange(3950, 5750, 1)):
     ###filter the abnormal data###
     delete_arrays = []
     for _i, _j in enumerate(flux_norm_array):
-        if len(_j[_j==0]) == len(wave):
+        if len(_j[_j == 0]) == len(wave):
             delete_arrays.append(_i)
         # elif len(np.unique(_j)) < 1000:
-            # delete_arrays.append(_i)
+        # delete_arrays.append(_i)
     for _k, _m in enumerate(mask_list):
-        if len(_m[_m!=0]) == len(wave):
+        if len(_m[_m != 0]) == len(wave):
             delete_arrays.append(_k)
     delete_tuple = tuple(np.unique(delete_arrays))
     flux_norm_array = np.delete(flux_norm_array, delete_tuple, axis=0)
@@ -204,7 +205,8 @@ def do_CCF_fits_path(ccf_specs, work_path, fits_path):
     return {'para_CCF': para_CCF}
 
 
-def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, CCF_wave=np.arange(3800, 6000, 1), wave=np.arange(3950, 5750, 1)):
+def do_mock_spectra_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, CCF_wave=np.arange(3800, 6000, 1),
+                                  wave=np.arange(3950, 5750, 1)):
     """
     Do the CCF for the flux list.
     Args:
@@ -212,16 +214,14 @@ def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, CCF_wav
         flux_norm_array: the list of normalized flux of observed spectra
         snr_array: the snr of these observed spectra
         obsid_array: the obsid of these observed spectra
-
     Returns:
         the parameters list of CCF
         para_CCF: obsid of LAMOST, teff, logg, M/H, alpha/M, rv, snr
     """
-    if len(flux_norm_array[0]) == 1800:  # for the single spectra len(flux_norm_array[0]) = 1800, but for 2 epoches spectra, the value is 2.
+    if len(flux_norm_array.flatten()) == 1800:  # for the single spectra len(flux_norm_array[0]) = 1800, but for 2 epoches spectra, the value is 2.
         test_size = 1
     else:
-        test_size = len(flux_norm_array[0])
-        flux_norm_array = flux_norm_array[0]
+        test_size = len(flux_norm_array)
     template_size = len(ccf_specs['flux_norm_regli_CCF'])
     para_CCF = np.zeros((test_size, 8), dtype=float)
     max_ccfs = np.zeros((template_size, test_size), dtype=float)
@@ -255,6 +255,147 @@ def do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, CCF_wav
     return para_CCF
 
 
+def do_observed_spetra_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, sp,
+                                     CCF_wave=np.arange(3800, 6000, 1),
+                                     wave=np.arange(3950, 5750, 1)):
+    """
+    Do the CCF for the flux list.
+    Args:
+        CCF_wave:
+        wave:
+        ccf_specs: the templated spectra of CCF
+        flux_norm_array: the list of normalized flux of observed spectra
+        snr_array: the snr of these observed spectra
+        obsid_array: the obsid of these observed spectra
+
+    Returns:
+        the parameters list of CCF
+        para_CCF: obsid of LAMOST, teff, logg, M/H, alpha/M, rv, snr
+    """
+    if len(flux_norm_array.flatten()) == 1800:  # for the single spectra len(flux_norm_array[0]) = 1800, but for 2 epoches spectra, the value is 2.
+        test_size = 1
+    else:
+        test_size = len(flux_norm_array)
+    template_size = len(ccf_specs['flux_norm_regli_CCF'])
+    para_CCF = np.zeros((test_size, 8), dtype=float)
+    para_sp = np.zeros((test_size, 7), dtype=float)
+    max_ccfs = np.zeros((template_size, test_size), dtype=float)
+    rvs = np.zeros((template_size, test_size), dtype=float)
+
+    # do ccf for each spectra and find the best one template for one source (with multiple spectra that listed in
+    # spectra list).
+    for _i in range(template_size):
+        for _j in range(test_size):
+            rvgrid, ccf = wxcorr_rvgrid(wave, flux_norm_array[_j], CCF_wave, ccf_specs['flux_norm_regli_CCF'][_i],
+                                        rv_grid=np.linspace(-500, 500, 50))
+            max_ccfs[_i][_j] = max(ccf)
+            rvs[_i][_j] = rvgrid[np.argmax(ccf)]
+    # Get the best template and its index, then get the parameters and flux of this template.
+    max_ccfs_mean_index = np.argmax(max_ccfs.max(axis=1))
+    best_template_paras = ccf_specs['p_regli_CCF'][max_ccfs_mean_index]
+    best_template_flux = ccf_specs['flux_norm_regli_CCF'][max_ccfs_mean_index]
+
+    # plt.plot(wave, flux_norm_array[0], 'k-')
+    # plt.plot(CCF_wave, best_template_flux, 'g-')
+    # plt.show()
+    # Utilized the row velocities to get the precise values. By the way, get the return.
+    rvm = RVM(best_template_paras, CCF_wave, best_template_flux)
+    for _k in range(test_size):
+        rvr = rvm.measure(wave_obs=wave, flux_obs=flux_norm_array[_k])
+        para_CCF[_k][0] = obsid_array[_k][0]
+        para_CCF[_k][1:5] = best_template_paras
+        para_CCF[_k][5] = rvr['rv_opt']
+        para_CCF[_k][6] = snr_array[_k][0]
+        para_CCF[_k][7] = np.max(max_ccfs.max(axis=1))
+
+        para_sp[_k][0] = obsid_array[_k][0]
+        para_sp[_k][1:5] = sp.least_squares(flux_norm_array[_k], p0=best_template_paras)
+        para_sp[_k][5] = rvr['rv_opt']
+        para_sp[_k][6] = snr_array[_k][0]
+
+    return para_CCF, para_sp
+
+
+# def do_CCF_flux_list_2(ccf_specs, flux_norm_array, snr_array, obsid_array, sp, CCF_wave=np.arange(3800, 6000, 1),
+#                        wave=np.arange(3950, 5750, 1)):
+#     """
+#     Do the CCF for the flux list.
+#     Args:
+#         ccf_specs: the templated spectra of CCF
+#         flux_norm_array: the list of normalized flux of observed spectra
+#         snr_array: the snr of these observed spectra
+#         obsid_array: the obsid of these observed spectra
+#
+#     Returns:
+#         the parameters list of CCF
+#         para_CCF: obsid of LAMOST, teff, logg, M/H, alpha/M, rv, snr
+#     """
+#     if len(flux_norm_array.flatten()) == 1800:  # for the single spectra len(flux_norm_array[0]) = 1800, but for 2 epoches spectra, the value is 2.
+#         test_size = 1
+#     else:
+#         test_size = len(flux_norm_array)
+#         # flux_norm_array = flux_norm_array
+#     print(test_size)
+#     template_size = len(ccf_specs['flux_norm_regli_CCF'])
+#     para_CCF = np.zeros((test_size, 8), dtype=float)
+#     para_sp = np.zeros((test_size, 7), dtype=float)
+#     max_ccfs = np.zeros((template_size, test_size), dtype=float)
+#     rvs = np.zeros((template_size, test_size), dtype=float)
+#
+#     # do ccf for each spectra and find the best one template for one source (with multiple spectra that listed in
+#     # spectra list).
+#     for _i in range(template_size):
+#         for _j in range(test_size):
+#             rvgrid, ccf = wxcorr_rvgrid(wave, flux_norm_array[_j], CCF_wave, ccf_specs['flux_norm_regli_CCF'][_i],
+#                                         rv_grid=np.linspace(-500, 500, 50))
+#             max_ccfs[_i][_j] = max(ccf)
+#             rvs[_i][_j] = rvgrid[np.argmax(ccf)]
+#     # Get the best template and its index, then get the parameters and flux of this template.
+#     max_ccfs_mean_index = np.argmax(max_ccfs.max(axis=1))
+#     best_template_paras = ccf_specs['p_regli_CCF'][max_ccfs_mean_index]
+#     best_template_flux = ccf_specs['flux_norm_regli_CCF'][max_ccfs_mean_index]
+#
+#     # plt.plot(wave, flux_norm_array[0], 'k-')
+#     # plt.plot(CCF_wave, best_template_flux, 'g-')
+#     # plt.show()
+#     # Utilized the row velocities to get the precise values. By the way, get the return.
+#     rvm = RVM(best_template_paras, CCF_wave, best_template_flux)
+#     df_empty = pd.DataFrame(columns=['combined_obsid', 'T_CCF', 'logg_CCF', 'M/H_CCF', 'alpha/M_CCF', 'rv_CCF',
+#                                      'snr_CCF', 'CCFmax', 'T_sp', 'logg_sp', 'M/H_sp', 'alpha/M_sp'])
+#     for _k in range(test_size):
+#         rvr = rvm.measure(wave_obs=wave, flux_obs=flux_norm_array[_k])
+#         # df_empty.loc[_k] = _k
+#         # df_empty['combined_obsid'] = obsid_array[_k][0]
+#         # df_empty['T_CCF'] = best_template_paras[0]
+#         # df_empty['logg_CCF'] = best_template_paras[1]
+#         # df_empty['H_CCF'] = best_template_paras[2]
+#         # df_empty['alpha/M_CCF'] = best_template_paras[3]
+#         # df_empty['rv_CCF'] = rvr['rv_opt']
+#         # df_empty['snr_CCF'] = snr_array[_k][0]
+#         # df_empty['CCFmax'] = np.max(max_ccfs.max(axis=1))
+#
+#         res = sp.least_squares(flux_norm_array[_k], p0=best_template_paras)
+#         # df_empty['T_sp'] = res[0]
+#         # df_empty['logg_sp'] = res[1]
+#         # df_empty['H_sp'] = res[2]
+#         # df_empty['alpha/M_sp'] = res[3]
+#
+#         df_empty.loc[len(df_empty)] = {'combined_obsid': obsid_array[_k][0],
+#                                        'T_CCF': best_template_paras[0],
+#                                        'logg_CCF': best_template_paras[1],
+#                                        'M/H_CCF': best_template_paras[2],
+#                                        'alpha/M_CCF': best_template_paras[3],
+#                                        'rv_CCF': rvr['rv_opt'],
+#                                        'snr_CCF': snr_array[_k][0],
+#                                        'CCFmax': np.max(max_ccfs.max(axis=1)),
+#                                        'T_sp': res[0],
+#                                        'logg_sp': res[1],
+#                                        'M/H_sp': res[2],
+#                                        'alpha/M_sp': res[3]}
+#
+#     return df_empty
+
+
 def getFileName2(path, suffix):
     input_template_All = []
     input_template_All_Path = []
@@ -266,41 +407,57 @@ def getFileName2(path, suffix):
     return input_template_All, input_template_All_Path
 
 
-def _one_task(fits_list, ccf_specs):
-    work_path = './20220313_CCF_test_grouped_fits/'
+def _one_task(fits_list, ccf_specs, sp):
+    work_path = '/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS' \
+                '/20220707_main2_observed_single_RV_standard_set_criteria' \
+                '/RV_standard_star_Apogee_LAMOST_3239_spectra/'
     flux_norm_array, flux_norm_err_array, snr_array, obsid_array = read_spectra_multi(fits_list, work_path)
     if len(flux_norm_array) != 0:
-        para_CCF = do_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array)
+        DF = do_observed_spetra_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, sp)
+        # res = sp.least_squares(flux_norm_array[0], p0=para_CCF[0][1:5])
+        print(DF)
     else:
-        para_CCF = []
-    return para_CCF
+        DF = []
+    return DF
 
 
 if __name__ == '__main__':
+    sp = joblib.load('/Users/liujunhui/PycharmProjects/LamostBinary/sp2022_05_29_13_09_44_Step_64013_1.dmp')
+
     # Load CCF wave range, template and its corresponding parameters.
     CCF_wave = np.arange(3800, 6000, 1)
-    CCF_specs = joblib.load('./2022_03_16_14_08_52_imitated_CCF_wl_3800_6000_1000_.dump')
+    CCF_specs = joblib.load('./2022_07_20_20_58_18_imitated_CCF_wl_3800_6000_1000_.dump')
 
     # Load observed spectral wave range, the folder of fits file and its parameters recorded file.
     wave = np.arange(3950, 5750, 1)
-    work_path = './20220313_CCF_test_grouped_fits/'
-    data_csv_path = './20220313_snrg_30_Grpeddata_CCF_test.csv'
+    work_path = '/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS' \
+                '/20220707_main2_observed_single_RV_standard_set_criteria' \
+                '/RV_standard_star_Apogee_LAMOST_3239_spectra/'
+    data_csv_path = '/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS' \
+                    '/20220707_main2_observed_single_RV_standard_set_criteria/RV_standard_star_Apogee_LAMOST_3239.csv'
     data_csv = pd.read_csv(data_csv_path)
 
     # To group the observed spectra based on their "GroupID".
     Grouped_data_csv = data_csv.groupby(data_csv['GroupID'])
     Unique_GroupID = pd.unique(data_csv['GroupID'])  # get unique GroupID
+    print(Unique_GroupID)
 
     start = time.time()
 
     # multiprocess
     fits_lists = []
+    obsid_lists = []
     for _i in Unique_GroupID:
         fits_list = pd.unique(Grouped_data_csv.get_group(_i)['combined_file'])
+        obsid_list = pd.unique(Grouped_data_csv.get_group(_i)['combined_obsid'])
         fits_lists.append(fits_list)
-    # print(fits_lists[-1])
+        obsid_lists.append(obsid_list)
+    # print(fits_lists[0])
     # _one_task(fits_lists[-1], CCF_specs)
-    result = joblib.Parallel(n_jobs=1, backend="multiprocessing")(joblib.delayed(_one_task)(_, CCF_specs) for _ in fits_lists[:1])
-    print(result)
+    # print(obsid_lists)
+    result = joblib.Parallel(n_jobs=1, backend="multiprocessing")(joblib.delayed(_one_task)(_, CCF_specs, sp) for _ in
+                                                                  fits_lists[:30])
+    joblib.dump(result, './RV.dump')
+    # print(result)
     end = time.time()
     print(end - start)
