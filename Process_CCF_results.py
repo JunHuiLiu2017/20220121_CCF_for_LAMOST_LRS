@@ -1,12 +1,24 @@
 import joblib
 import pandas as pd
-
+import os
 from CCF_test_no_label import getFileName2
 
 
 def process_CCF_result(file_path):
     data_list = joblib.load(file_path)
     return data_list
+
+
+def screen_file(files_path, extension):                         # 函数功能为：筛选出文件夹下所有后缀名为.txt的文件
+    path = files_path        	# 文件夹地址
+    aim_list = []										# 创建一个空列表用于存放文件夹下所有后缀为.txt的文件名称
+    file_list = os.listdir(path)                   	 	# 获取path文件夹下的所有文件，并生成列表
+    for i in file_list:
+        file_ext = os.path.splitext(i)              	# 分离文件前后缀，front为前缀名，ext为后缀名
+        front, ext = file_ext							# 将前后缀分别赋予front和ext
+        if ext == extension:                          		# 判断如果后缀名为.txt则将该文件名添加到txt_list的列表当中去
+            aim_list.append(files_path+i)
+    return aim_list
 
 
 if __name__ == '__main__':
@@ -104,18 +116,53 @@ if __name__ == '__main__':
 
     #################################################    After 2022.07.22    #####################################################
 
-    # # For the multi observed spectra from LAMOST  !!!!!!!!!!!
+
+
+    # # # In the step, I only get the first CCF result, so the _i[0][0][0].
+    # ## this section is only for one dump file.
+    # test_result = joblib.load('./CCF_observed_binary/20220721_new_CCF_result_test_sample_observed_spectra_4997.dump')
+    # # for i in test_result:
+    # #     print(i[1])
+    # output_file = './CCF_observed_binary/20220721_new_CCF_result_test_sample_observed_spectra_4997.csv'
+    # with open(output_file, 'w+') as _file:
+    #     _file.write('combined_obsid,T_CCF,logg_CCF,M/H_CCF,alpha/M_CCF,rv_CCF,snr_CCF,CCFmax,T_sp,logg_sp,M/H_sp,'
+    #                 'alpha/M_sp\n') #7
+    #     for _i in test_result:
+    #         single_record = '{:.0f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.3f},' \
+    #                         '{:.3f},{:.3f},{:.3f},{:.3f}\n'.format(
+    #             _i[0][0][0], _i[0][0][1], _i[0][0][2], _i[0][0][3], _i[0][0][4], _i[0][0][5], _i[0][0][6], _i[0][0][7],
+    #             _i[1][0][1], _i[1][0][2], _i[1][0][3], _i[1][0][4])
+    #         _file.write(single_record)
+
+
+#####################################################   2022.09.25 (for Total CCF result)  ##########################################
     # # In the step, I only get the first CCF result, so the _i[0][0][0].
-    test_result = joblib.load('./CCF_observed_binary/20220721_new_CCF_result_test_sample_observed_spectra_4997.dump')
-    # for i in test_result:
-    #     print(i[1])
-    output_file = './/CCF_observed_binary/20220721_new_CCF_result_test_sample_observed_spectra_4997.csv'
+    results_path = '/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS/CCF_observed_binary_TOTAL/'
+    results_dump_paths = screen_file(results_path, '.dump')
+    print(results_dump_paths)
+
+    output_file = '/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS/CCF_observed_binary_TOTAL' \
+                  '/CCF_result_sum.csv'
     with open(output_file, 'w+') as _file:
         _file.write('combined_obsid,T_CCF,logg_CCF,M/H_CCF,alpha/M_CCF,rv_CCF,snr_CCF,CCFmax,T_sp,logg_sp,M/H_sp,'
-                    'alpha/M_sp\n') #7
-        for _i in test_result:
-            single_record = '{:.0f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.3f},' \
-                            '{:.3f},{:.3f},{:.3f},{:.3f}\n'.format(
-                _i[0][0][0], _i[0][0][1], _i[0][0][2], _i[0][0][3], _i[0][0][4], _i[0][0][5], _i[0][0][6], _i[0][0][7],
-                _i[1][0][1], _i[1][0][2], _i[1][0][3], _i[1][0][4])
-            _file.write(single_record)
+                    'alpha/M_sp\n')
+        for one_path in results_dump_paths:
+            test_result = joblib.load(one_path)
+            # print(test_result)
+            for _i in test_result:
+                single_record = '{:.0f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f},{:.1f},{:.3f},{:.3f},{:.3f},{:.3f},{:.3f}\n'.\
+                    format(_i[0][0][0], _i[0][0][1], _i[0][0][2], _i[0][0][3], _i[0][0][4], _i[0][0][5], _i[0][0][6], \
+                        _i[0][0][7],_i[1][0][1], _i[1][0][2], _i[1][0][3], _i[1][0][4])
+                _file.write(single_record)
+
+    whole_data = pd.read_csv('./20220915_LAMOST_DR9_snrg30_4289736_G.csv')
+    CCF_result = pd.read_csv(output_file)
+    df2 = pd.merge(whole_data, CCF_result, on=['combined_obsid'])
+    df2.sort_values(by='combined_obsid')
+    df2.to_csv('/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS/CCF_observed_binary_TOTAL'
+               '/CCF_result_sum_all.csv', index=False)
+
+
+
+
+

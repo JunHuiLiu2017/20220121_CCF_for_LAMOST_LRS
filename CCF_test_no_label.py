@@ -410,7 +410,7 @@ def getFileName2(path, suffix):
 def _one_task(fits_list, ccf_specs, sp):
     work_path = '/Users/liujunhui/PycharmProjects/20220121_CCF_for_LAMOST_LRS' \
                 '/20220707_main2_observed_single_RV_standard_set_criteria' \
-                '/RV_standard_star_Apogee_LAMOST_3239_spectra/'
+                '/RV_standard_star_Apogee_LAMOST_3239_spectra_dr9/'
     flux_norm_array, flux_norm_err_array, snr_array, obsid_array = read_spectra_multi(fits_list, work_path)
     if len(flux_norm_array) != 0:
         DF = do_observed_spetra_CCF_flux_list(ccf_specs, flux_norm_array, snr_array, obsid_array, sp)

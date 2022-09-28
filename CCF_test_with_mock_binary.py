@@ -6,7 +6,7 @@ from CCF_test_no_label import do_mock_spectra_CCF_flux_list
 
 def _one_task_mock_binary(flux_norm_array, true_para, ccf_specs):
     spec_num = len(flux_norm_array[0])
-    para_CCF = do_mock_spectra_CCF_flux_list(ccf_specs, flux_norm_array, [[100]]*spec_num, [[0]]*spec_num)
+    para_CCF = do_mock_spectra_CCF_flux_list(ccf_specs, flux_norm_array, [[0]]*spec_num, [[0]]*spec_num)
     para_CCF = para_CCF.tolist()
     para = [para_CCF[0], list(true_para[0])]
     print(para)
