@@ -155,7 +155,7 @@ if __name__ == '__main__':
                         _i[0][0][7],_i[1][0][1], _i[1][0][2], _i[1][0][3], _i[1][0][4])
                 _file.write(single_record)
 
-    whole_data = pd.read_csv('./20220915_LAMOST_DR9_snrg30_4289736_G.csv')
+    whole_data = pd.read_csv('./CCF_observed_binary_TOTAL/20220915_LAMOST_DR9_snrg30_4289736_G.csv')
     CCF_result = pd.read_csv(output_file)
     df2 = pd.merge(whole_data, CCF_result, on=['combined_obsid'])
     df2.sort_values(by='combined_obsid')
